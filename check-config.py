@@ -12,10 +12,13 @@
 Источник — путь к файлу или URL подписки. Ответ подписки принимается
 как JSON или как base64 с JSON внутри.
 """
-import base64, json, sys, urllib.request
+import base64, json, os, sys, urllib.request
 
-# Happ представляется так; подписка может отдавать разный ответ по User-Agent.
-UA = "Happ/1.0"
+# Remnawave выбирает формат ответа по User-Agent (Xray-клиенты ловятся
+# регулярным `^Happ/`), поэтому проверять надо ровно тот ответ, который
+# получает телефон. Но в истории запросов подписки эта запись должна быть
+# отличима от настоящего клиента, иначе она засоряет статистику подключений.
+UA = os.environ.get("CHECK_UA", "Happ/1.0 (routing-ci; +github.com/nifoleyarc/routing)")
 
 
 def fetch(src):
