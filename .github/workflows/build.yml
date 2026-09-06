@@ -2,7 +2,9 @@ name: build geo files
 
 on:
   schedule:
-    - cron: "17 3 * * *"
+    # Раз в неделю: за месяц наши категории в geosite меняются на +52/-2
+    # домена, а Happ всё равно не забирает geo-файлы чаще раза в неделю.
+    - cron: "17 3 * * 1"
   workflow_dispatch:
   push:
     branches: [main]
