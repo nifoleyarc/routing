@@ -1,0 +1,11 @@
+# сборочные артефакты
+dist/
+upstream/
+__pycache__/
+
+# локальное: наружу не идёт
+BRIEF.md
+README.md
+xray-client-routing.json
+make-deeplink.py
+HAPP.DEEPLINK

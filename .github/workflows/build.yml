@@ -1,0 +1,76 @@
+name: build geo files
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - build.sh
+      - trim.py
+      - .github/workflows/build.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-geo
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # build.sh падает, если хоть одна категория не найдена в апстриме.
+      # Это намеренно: .dat без категории, на которую ссылается конфиг,
+      # заставит ядро отказаться стартовать у каждого клиента.
+      - name: Собрать
+        run: ./build.sh
+
+      - name: Проверить ядром
+        run: |
+          curl -fsSL -o xray.zip \
+            https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
+          unzip -q xray.zip xray
+          XRAY_LOCATION_ASSET="$PWD/dist" ./xray run -test -c dist/smoke.json
+
+      - name: Ветка release
+        id: publish
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin release --depth 1 || true
+          if git show-ref -q refs/remotes/origin/release; then
+            git checkout -B release origin/release
+          else
+            git checkout --orphan release
+            git rm -rq --cached . || true
+          fi
+
+          cp dist/geosite.dat dist/geoip.dat dist/sha256sum.txt .
+          git add -f geosite.dat geoip.dat sha256sum.txt
+
+          if git diff --cached --quiet; then
+            echo "апстримы не изменились, публиковать нечего"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "geo: $(date -u +%Y-%m-%d)"
+            git push origin release
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Тег фиксированный: ссылка .../releases/latest/download/ не меняется,
+      # кеша у Releases нет, лимита на размер файла тоже.
+      - name: Releases
+        if: steps.publish.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete release --yes --cleanup-tag || true
+          gh release create release --title "geo $(date -u +%Y-%m-%d)" --notes \
+            "Собрано из Loyalsoldier + roscomvpn. Состав категорий — build.sh." \
+            dist/geosite.dat dist/geoip.dat dist/sha256sum.txt
