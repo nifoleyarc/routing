@@ -2,9 +2,7 @@ name: build geo files
 
 on:
   schedule:
-    # Раз в неделю: за месяц наши категории в geosite меняются на +52/-2
-    # домена, а Happ всё равно не забирает geo-файлы чаще раза в неделю.
-    - cron: "17 3 * * 1"
+    - cron: "17 3 * * *"
   workflow_dispatch:
   push:
     branches: [main]
@@ -45,25 +43,27 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          # Признак изменения — sha256sum.txt: он меняется тогда и только
+          # тогда, когда изменились сами .dat.
           git fetch origin release --depth 1 || true
-          if git show-ref -q refs/remotes/origin/release; then
-            git checkout -B release origin/release
-          else
-            git checkout --orphan release
-            git rm -rq --cached . || true
-          fi
-
-          cp dist/geosite.dat dist/geoip.dat dist/sha256sum.txt .
-          git add -f geosite.dat geoip.dat sha256sum.txt
-
-          if git diff --cached --quiet; then
+          if git show-ref -q refs/remotes/origin/release &&
+             git show origin/release:sha256sum.txt 2>/dev/null |
+               diff -q - dist/sha256sum.txt >/dev/null 2>&1; then
             echo "апстримы не изменились, публиковать нечего"
             echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m "geo: $(date -u +%Y-%m-%d)"
-            git push origin release
-            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          # Ветка одно-коммитная и переписывается force-push: она нужна
+          # только как зеркало для jsDelivr. Хранить историю .dat незачем,
+          # иначе репозиторий копит сотни мегабайт бинарников в год.
+          git checkout --orphan _rel
+          git rm -rq --cached . || true
+          cp dist/geosite.dat dist/geoip.dat dist/sha256sum.txt .
+          git add -f geosite.dat geoip.dat sha256sum.txt
+          git commit -qm "geo: $(date -u +%Y-%m-%d)"
+          git push -f origin _rel:release
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
       # Тег фиксированный: ссылка .../releases/latest/download/ не меняется,
       # кеша у Releases нет, лимита на размер файла тоже.
