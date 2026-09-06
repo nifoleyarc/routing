@@ -68,10 +68,17 @@ jobs:
       # Имя тега обязано отличаться от имени ветки: одноимённые ref
       # неоднозначны, и ссылка jsDelivr @release может уехать в тег.
       - name: Releases
-        if: steps.publish.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          CHANGED: ${{ steps.publish.outputs.changed }}
         run: |
+          # Наличие релиза проверяется отдельно от изменений в ветке:
+          # иначе удалённый вручную релиз никогда не восстановится,
+          # потому что ветка при неизменных апстримах остаётся прежней.
+          if [ "$CHANGED" != "true" ] && gh release view latest >/dev/null 2>&1; then
+            echo "релиз на месте, апстримы не менялись"
+            exit 0
+          fi
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest --title "geo $(date -u +%Y-%m-%d)" --notes \
             "Собрано из Loyalsoldier + roscomvpn. Состав категорий — build.sh." \
