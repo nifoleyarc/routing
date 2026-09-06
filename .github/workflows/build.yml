@@ -16,6 +16,7 @@ on:
       - trim.py
       - make-deeplink.py
       - push-routing.py
+      - check-config.py
       - .github/workflows/build.yml
 
 permissions:
@@ -43,6 +44,20 @@ jobs:
             https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
           unzip -q xray.zip xray
           XRAY_LOCATION_ASSET="$PWD/dist" ./xray run -test -c dist/smoke.json
+
+      # Конфиг живёт в подписке, geo-файлы здесь — разойтись они могут
+      # молча, и тогда ядро у клиента не стартует. Проверка стоит ДО
+      # публикации: при расхождении на клиентах остаются прежние рабочие
+      # файлы, а не новые ломающие.
+      - name: Сверить с конфигом из подписки
+        env:
+          SUB_URL: ${{ secrets.REMNAWAVE_SUB_URL }}
+        run: |
+          if [ -z "$SUB_URL" ]; then
+            echo "::warning::секрет REMNAWAVE_SUB_URL не задан, конфиг из подписки не проверен"
+            exit 0
+          fi
+          python3 check-config.py dist "$SUB_URL"
 
       - name: Ветка release
         id: publish
