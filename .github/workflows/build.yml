@@ -65,12 +65,14 @@ jobs:
 
       # Тег фиксированный: ссылка .../releases/latest/download/ не меняется,
       # кеша у Releases нет, лимита на размер файла тоже.
+      # Имя тега обязано отличаться от имени ветки: одноимённые ref
+      # неоднозначны, и ссылка jsDelivr @release может уехать в тег.
       - name: Releases
         if: steps.publish.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete release --yes --cleanup-tag || true
-          gh release create release --title "geo $(date -u +%Y-%m-%d)" --notes \
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest --title "geo $(date -u +%Y-%m-%d)" --notes \
             "Собрано из Loyalsoldier + roscomvpn. Состав категорий — build.sh." \
             dist/geosite.dat dist/geoip.dat dist/sha256sum.txt
