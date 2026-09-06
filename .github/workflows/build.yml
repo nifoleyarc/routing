@@ -4,11 +4,18 @@ on:
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      force_routing:
+        description: "Обновить routing-профиль, даже если geo-файлы не менялись"
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
       - build.sh
       - trim.py
+      - make-deeplink.py
+      - push-routing.py
       - .github/workflows/build.yml
 
 permissions:
@@ -85,3 +92,22 @@ jobs:
           gh release create latest --title "geo $(date -u +%Y-%m-%d)" --notes \
             "Собрано из Loyalsoldier + roscomvpn. Состав категорий — build.sh." \
             dist/geosite.dat dist/geoip.dat dist/sha256sum.txt
+
+      # Happ читает routing-профиль из заголовка `routing` на ответе
+      # подписки. Профиль пересобирается со свежим LastUpdated только когда
+      # geo-файлы реально изменились: клиент перекачивает их, лишь если
+      # метка выросла, а чаще раза в неделю он этого всё равно не делает.
+      - name: Routing-профиль в Remnawave
+        if: >-
+          steps.publish.outputs.changed == 'true' ||
+          inputs.force_routing
+        env:
+          REMNAWAVE_URL: ${{ secrets.REMNAWAVE_URL }}
+          REMNAWAVE_TOKEN: ${{ secrets.REMNAWAVE_TOKEN }}
+        run: |
+          if [ -z "$REMNAWAVE_URL" ] || [ -z "$REMNAWAVE_TOKEN" ]; then
+            echo "секреты REMNAWAVE_URL / REMNAWAVE_TOKEN не заданы, шаг пропущен"
+            exit 0
+          fi
+          python3 make-deeplink.py --repo "$GITHUB_REPOSITORY"
+          python3 push-routing.py HAPP.DEEPLINK
