@@ -17,6 +17,7 @@ on:
       - make-deeplink.py
       - push-routing.py
       - check-config.py
+      - canonical.py
       - .github/workflows/build.yml
 
 permissions:
@@ -65,12 +66,13 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Признак изменения — sha256sum.txt: он меняется тогда и только
-          # тогда, когда изменились сами .dat.
+          # Признак изменения — canonical.txt, а не хеш файла: апстрим
+          # переставляет записи внутри категорий при каждой пересборке,
+          # и .dat меняет хеш при нулевом изменении содержимого.
           git fetch origin release --depth 1 || true
           if git show-ref -q refs/remotes/origin/release &&
-             git show origin/release:sha256sum.txt 2>/dev/null |
-               diff -q - dist/sha256sum.txt >/dev/null 2>&1; then
+             git show origin/release:canonical.txt 2>/dev/null |
+               diff -q - dist/canonical.txt >/dev/null 2>&1; then
             echo "апстримы не изменились, публиковать нечего"
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -81,8 +83,8 @@ jobs:
           # иначе репозиторий копит сотни мегабайт бинарников в год.
           git checkout --orphan _rel
           git rm -rq --cached . || true
-          cp dist/geosite.dat dist/geoip.dat dist/sha256sum.txt .
-          git add -f geosite.dat geoip.dat sha256sum.txt
+          cp dist/geosite.dat dist/geoip.dat dist/sha256sum.txt dist/canonical.txt .
+          git add -f geosite.dat geoip.dat sha256sum.txt canonical.txt
           git commit -qm "geo: $(date -u +%Y-%m-%d)"
           git push -f origin _rel:release
           echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -106,7 +108,7 @@ jobs:
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest --title "geo $(date -u +%Y-%m-%d)" --notes \
             "Собрано из Loyalsoldier + roscomvpn. Состав категорий — build.sh." \
-            dist/geosite.dat dist/geoip.dat dist/sha256sum.txt
+            dist/geosite.dat dist/geoip.dat dist/sha256sum.txt dist/canonical.txt
 
       # Happ читает routing-профиль из заголовка `routing` на ответе
       # подписки. Профиль пересобирается со свежим LastUpdated только когда

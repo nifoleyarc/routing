@@ -78,3 +78,8 @@ JSON
 echo
 ls -l "$OUT"
 ( cd "$OUT" && sha256sum geosite.dat geoip.dat | tee sha256sum.txt )
+
+# Признак изменения для CI. Обычный хеш не годится: апстрим тасует записи
+# внутри категорий при каждой пересборке, и файл меняется при нулевом
+# изменении содержимого.
+python3 canonical.py "$OUT/geosite.dat" "$OUT/geoip.dat" | tee "$OUT/canonical.txt"
