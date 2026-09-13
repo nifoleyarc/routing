@@ -1,0 +1,2 @@
+535ceff0263bbd54a054e65aed32b8a88683965ec9d8bfcc9df346ace6b2adb9  geosite.dat  (41 категорий)
+83e8d104a2a4d21842e67a9e5c15d656b7e470a31cfd7c5f549605415a7dea8e  geoip.dat  (4 категорий)
